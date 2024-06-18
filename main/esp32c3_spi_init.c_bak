@@ -1,0 +1,175 @@
+#include <stdio.h>
+#include "esp_log.h"
+#include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "esp_timer.h"
+#include "esp_lcd_panel_ops.h"
+#include "esp_lcd_panel_rgb.h"
+#include "driver/gpio.h"
+#include "esp_err.h"
+#include "esp_log.h"
+// #include "spiram.h"
+
+#include "lvgl.h"
+
+// #include "screen_rgb_spi.h"
+#include "Vernon_ST7701S/ST7701S.h"
+
+static const char *TAG = "RGB565_3INCH";
+
+#define LCD_PIXEL_CLOCK_HZ     (27 * 1000 * 1000)
+#define LCD_BK_LIGHT_ON_LEVEL  1
+#define LCD_BK_LIGHT_OFF_LEVEL !EXAMPLE_LCD_BK_LIGHT_ON_LEVEL
+#define PIN_NUM_BK_LIGHT       -1
+#define PIN_NUM_HSYNC          8 // 15
+#define PIN_NUM_VSYNC          7 // 14
+#define PIN_NUM_DE             9 // 17
+#define PIN_NUM_PCLK           10  // 16
+#define PIN_NUM_DATA0          46 // B0 18
+#define PIN_NUM_DATA1          45 // B1 19
+#define PIN_NUM_DATA2          42 // B2 20
+#define PIN_NUM_DATA3          41 // B3 21
+#define PIN_NUM_DATA4          19 // B4 22
+#define PIN_NUM_DATA5          16 // G0 23
+#define PIN_NUM_DATA6          17 // G1 24
+#define PIN_NUM_DATA7          18 // G2 25
+#define PIN_NUM_DATA8          21 // G3 26 
+#define PIN_NUM_DATA9          40 // G4 27 这两个引脚会引起程序异常
+#define PIN_NUM_DATA10         33 // G5 28 这两个引脚会引起程序异常
+#define PIN_NUM_DATA11         38  // R0 29
+#define PIN_NUM_DATA12         47  // R1 30
+#define PIN_NUM_DATA13         48 // R2 31
+#define PIN_NUM_DATA14         13 // R3 32
+#define PIN_NUM_DATA15         14 // R4 33
+#define PIN_NUM_DISP_EN        -1
+
+
+#if CONFIG_EXAMPLE_DOUBLE_FB
+#define LCD_NUM_FB             2
+#else
+#define LCD_NUM_FB             1
+#endif // CONFIG_EXAMPLE_DOUBLE_FB
+
+// The pixel number in horizontal and vertical
+#define LCD_H_RES              480
+#define LCD_V_RES              854
+
+//Custom Var
+#define SPI_RESET 4 // 34
+#define SPI_SDA 3  // 37
+#define SPI_SCL 2 // 36
+#define SPI_CS  1 // 35
+
+// we use two semaphores to sync the VSYNC event and the LVGL task, to avoid potential tearing effect
+#if CONFIG_EXAMPLE_AVOID_TEAR_EFFECT_WITH_SEM
+SemaphoreHandle_t sem_vsync_end;
+SemaphoreHandle_t sem_gui_ready;
+#endif
+
+static bool example_on_vsync_event(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *event_data, void *user_data)
+{
+    BaseType_t high_task_awoken = pdFALSE;
+#if CONFIG_EXAMPLE_AVOID_TEAR_EFFECT_WITH_SEM
+    if (xSemaphoreTakeFromISR(sem_gui_ready, &high_task_awoken) == pdTRUE) {
+        xSemaphoreGiveFromISR(sem_vsync_end, &high_task_awoken);
+    }
+#endif
+    return high_task_awoken == pdTRUE;
+}
+
+void app_main(void)
+{
+    ESP_LOGI(TAG, "SPI_SDA GPIO %d", SPI_SDA);
+    Vernon_ST7701S_handle vernon_st7701s = ST7701S_newObject(SPI_SDA, SPI_SCL, SPI_CS, SPI3_HOST, SPI_METHOD);
+    ST7701S_screen_init(vernon_st7701s, 8);
+
+    static lv_disp_draw_buf_t disp_buf; // contains internal graphic buffer(s) called draw buffer(s)
+    static lv_disp_drv_t disp_drv;      // contains callback functions
+
+#if CONFIG_EXAMPLE_AVOID_TEAR_EFFECT_WITH_SEM
+    ESP_LOGI(TAG, "Create semaphores");
+    sem_vsync_end = xSemaphoreCreateBinary();
+    assert(sem_vsync_end);
+    sem_gui_ready = xSemaphoreCreateBinary();
+    assert(sem_gui_ready);
+#endif
+
+#if PIN_NUM_BK_LIGHT >= 0
+    ESP_LOGI(TAG, "Turn off LCD backlight");
+    gpio_config_t bk_gpio_config = {
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = 1ULL << PIN_NUM_BK_LIGHT
+    };
+    ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
+#endif
+
+    ESP_LOGI(TAG, "Install RGB LCD panel driver");
+    esp_lcd_panel_handle_t panel_handle = NULL;
+    esp_lcd_rgb_panel_config_t panel_config = {
+        .data_width = 16, // RGB565 in parallel mode, thus 16bit in width
+        .psram_trans_align = 64,
+        .num_fbs = LCD_NUM_FB,
+#if CONFIG_EXAMPLE_USE_BOUNCE_BUFFER
+        .bounce_buffer_size_px = 10 * LCD_H_RES,
+#endif
+        .clk_src = LCD_CLK_SRC_DEFAULT,
+        .disp_gpio_num = PIN_NUM_DISP_EN,
+        .pclk_gpio_num = PIN_NUM_PCLK,
+        .vsync_gpio_num = PIN_NUM_VSYNC,
+        .hsync_gpio_num = PIN_NUM_HSYNC,
+        .de_gpio_num = PIN_NUM_DE,
+        .data_gpio_nums = {
+            PIN_NUM_DATA0,
+            PIN_NUM_DATA1,
+            PIN_NUM_DATA2,
+            PIN_NUM_DATA3,
+            PIN_NUM_DATA4,
+            PIN_NUM_DATA5,
+            PIN_NUM_DATA6,
+            PIN_NUM_DATA7,
+            PIN_NUM_DATA8,
+            PIN_NUM_DATA9,
+            PIN_NUM_DATA10,
+            PIN_NUM_DATA11,
+            PIN_NUM_DATA12,
+            PIN_NUM_DATA13,
+            PIN_NUM_DATA14,
+            PIN_NUM_DATA15,
+        },
+        .timings = {
+            .pclk_hz = LCD_PIXEL_CLOCK_HZ,
+            .h_res = LCD_H_RES,
+            .v_res = LCD_V_RES,
+            // The following parameters should refer to LCD spec
+            .hsync_back_porch = 43,
+            .hsync_front_porch = 8,
+            .hsync_pulse_width = 2,
+            .vsync_back_porch = 42,
+            .vsync_front_porch = 4,
+            .vsync_pulse_width = 10,
+
+            /*大显伟业D需要配置*/
+            .flags.hsync_idle_low = 0,    // HSYNC 信号空闲时的电平，0：高电平，1：低电平
+            .flags.vsync_idle_low = 0,    // VSYNC 信号空闲时的电平，0 表示高电平，1：低电平
+            .flags.pclk_active_neg = 0,   // 时钟信号的有效边沿，0：上升沿有效，1：下降沿有效
+            .flags.de_idle_high = 1,      // DE 信号空闲时的电平，0：高电平，1：低电平
+        },
+        .flags.fb_in_psram = 1, // allocate frame buffer in PSRAM
+    };
+
+    ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
+
+    ESP_LOGI(TAG, "Register event callbacks");
+
+    esp_lcd_rgb_panel_event_callbacks_t cbs = {
+        .on_vsync = example_on_vsync_event,
+    };
+    ESP_ERROR_CHECK(esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, &disp_drv));
+
+    ESP_LOGI(TAG, "Initialize RGB LCD panel");
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+
+}
