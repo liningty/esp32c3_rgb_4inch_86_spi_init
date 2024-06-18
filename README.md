@@ -9,11 +9,16 @@ ST7701S
 # 屏幕介绍
 ![alt text](image/屏幕介绍.jpg)
 # 屏幕分辨率
-
 480*480
 
 # 初始化代码
 在ST7701S.c 文件中的9选项中
+## 更改RGB顺序
+```    
+SPI_WriteComm(0x36); //RGB   
+// SPI_WriteData(0x08); //FW:00     BW:10
+SPI_WriteData(0x00); //BGR
+```
 
 # 相应命令记录
 
