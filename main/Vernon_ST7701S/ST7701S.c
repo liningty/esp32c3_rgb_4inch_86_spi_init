@@ -8,7 +8,7 @@
 #include "esp_log.h"
 #include "ST7701S.h"
 
-#define SPI_RESET 15 // 6
+#define SPI_RESET 19 // 6
 
 #define SPI_WriteComm(cmd) ST7701S_WriteCommand(VernonSt7701S_handle, cmd)
 #define SPI_WriteData(data) ST7701S_WriteData(VernonSt7701S_handle, data)
@@ -1915,6 +1915,7 @@ void ST7701S_screen_init(Vernon_ST7701S_handle VernonSt7701S_handle, unsigned ch
 
         SPI_WriteComm(0x29);
     }else if(type == 8){
+        // 大显3寸屏幕
         gpio_set_level(SPI_RESET,1);
         Delay(1);
         gpio_set_level(SPI_RESET,0);
@@ -1927,6 +1928,12 @@ void ST7701S_screen_init(Vernon_ST7701S_handle VernonSt7701S_handle, unsigned ch
         SPI_WriteComm(0xC0);SPI_WriteData(0xE9);SPI_WriteData(0x03);
         SPI_WriteComm(0xC1);SPI_WriteData(0x10);SPI_WriteData(0x0C);
         SPI_WriteComm(0xC2);SPI_WriteData(0x20);SPI_WriteData(0x0A);
+
+        // SPI_WriteComm(0xC3); //配置工作模式为DE模式，供应商给的驱动源码并没有设置该 地址 。
+        // SPI_WriteData(0x02); // 0X02 The data is input on the negative edge of DOTCLK
+        // SPI_WriteData(0x02);
+        // SPI_WriteData(0x00);
+
         SPI_WriteComm(0xCC);SPI_WriteData(0x10);
         SPI_WriteComm(0xB0);SPI_WriteData(0x00);SPI_WriteData(0x23);SPI_WriteData(0x2A);SPI_WriteData(0x0A);SPI_WriteData(0x0E);SPI_WriteData(0x03);SPI_WriteData(0x12);SPI_WriteData(0x06);SPI_WriteData(0x06);SPI_WriteData(0x2A);SPI_WriteData(0x00);SPI_WriteData(0x10);SPI_WriteData(0x0F);SPI_WriteData(0x2D);SPI_WriteData(0x34);SPI_WriteData(0x1F);
         SPI_WriteComm(0xB1);SPI_WriteData(0x00);SPI_WriteData(0x24);SPI_WriteData(0x2B);SPI_WriteData(0x0F);SPI_WriteData(0x12);SPI_WriteData(0x07);SPI_WriteData(0x15);SPI_WriteData(0x0A);SPI_WriteData(0x0A);SPI_WriteData(0x2B);SPI_WriteData(0x08);SPI_WriteData(0x13);SPI_WriteData(0x10);SPI_WriteData(0x2D);SPI_WriteData(0x33);SPI_WriteData(0x1F);
@@ -1950,17 +1957,19 @@ void ST7701S_screen_init(Vernon_ST7701S_handle VernonSt7701S_handle, unsigned ch
         SPI_WriteComm(0xE6);SPI_WriteData(0x00);SPI_WriteData(0x00);SPI_WriteData(0x33);SPI_WriteData(0x33);
         SPI_WriteComm(0xE7);SPI_WriteData(0x44);SPI_WriteData(0x44);
         SPI_WriteComm(0xE8);SPI_WriteData(0x0C);SPI_WriteData(0x68);SPI_WriteData(0x0A);SPI_WriteData(0xA0);SPI_WriteData(0x0E);SPI_WriteData(0x6A);SPI_WriteData(0x0A);SPI_WriteData(0xA0);SPI_WriteData(0x08);SPI_WriteData(0x64);SPI_WriteData(0x0A);SPI_WriteData(0xA0);SPI_WriteData(0x0A);SPI_WriteData(0x66);SPI_WriteData(0x0A);SPI_WriteData(0xA0);
-        SPI_WriteComm(0xE9);SPI_WriteData(0x36);SPI_WriteData(0x00);
+        SPI_WriteComm(0xE9);SPI_WriteData(0x36);SPI_WriteData(0x00); //RGB
+        // SPI_WriteComm(0xE9);SPI_WriteData(0x36);SPI_WriteData(0x08); //BGR
         SPI_WriteComm(0xEB);SPI_WriteData(0x00);SPI_WriteData(0x01);SPI_WriteData(0xE4);SPI_WriteData(0xE4);SPI_WriteData(0x44);SPI_WriteData(0x88);SPI_WriteData(0x40);
         SPI_WriteComm(0xED);SPI_WriteData(0xFF);SPI_WriteData(0x45);SPI_WriteData(0x67);SPI_WriteData(0xFA);SPI_WriteData(0x01);SPI_WriteData(0x2B);SPI_WriteData(0xCF);SPI_WriteData(0xFF);SPI_WriteData(0xFF);SPI_WriteData(0xFC);SPI_WriteData(0xB2);SPI_WriteData(0x10);SPI_WriteData(0xAF);SPI_WriteData(0x76);SPI_WriteData(0x54);SPI_WriteData(0xFF);
         SPI_WriteComm(0xEF);SPI_WriteData(0x10);SPI_WriteData(0x0D);SPI_WriteData(0x04);SPI_WriteData(0x08);SPI_WriteData(0x3F);SPI_WriteData(0x1F);
         SPI_WriteComm(0x11);
-        Delay(150);
+        Delay(120);
         SPI_WriteComm(0x3A);SPI_WriteData(0x55);//RGB565  
         SPI_WriteComm(0x29);
 
         // Delay(300);
-        ESP_LOGI(TAG, "Init code send ok");
+        ESP_LOGI(TAG, "3inch Init code send ok");
+
     } else if(type == 9){
         gpio_set_level(SPI_RESET,1);
         Delay(50);

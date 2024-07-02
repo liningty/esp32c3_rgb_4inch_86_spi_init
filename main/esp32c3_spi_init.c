@@ -25,16 +25,16 @@ static const char *TAG = "example";
 
 
 //Custom Var
-#define SPI_RESET 2 // 34
-#define SPI_SDA 8  // 37
-#define SPI_SCL 4 // 36
-#define SPI_CS  5 // 35
+#define SPI_RESET 19 // 34
+#define SPI_SDA 1  // 37
+#define SPI_SCL 12 // 36
+#define SPI_CS  18 // 35
 
 
 void app_main(void)
 {
     Vernon_ST7701S_handle vernon_st7701s = ST7701S_newObject(SPI_SDA, SPI_SCL, SPI_CS, SPI2_HOST, SPI_METHOD);
-    ST7701S_screen_init(vernon_st7701s, 9);
-    ESP_LOGI(TAG, "Init code for 4inch screen");
+    ST7701S_screen_init(vernon_st7701s, 8);
+    ESP_LOGI(TAG, "Init code rgb screen");
 
 }

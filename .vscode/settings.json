@@ -1,0 +1,15 @@
+{
+    "idf.flashType": "UART",
+    "files.associations": {
+        "screen_rgb_init_spi.h": "c",
+        "functional": "cpp",
+        "screen_rgb_spi.h": "c",
+        "esp_lcd_panel_rgb.h": "c",
+        "freertos.h": "c",
+        "lvgl.h": "c",
+        "regex": "c",
+        "esp_lcd_panel_ops.h": "c"
+    },
+    "idf.adapterTargetName": "esp32c3",
+    "idf.port": "/dev/ttyACM0"
+}
